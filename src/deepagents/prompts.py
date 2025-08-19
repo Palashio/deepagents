@@ -255,15 +255,60 @@ Since the user is greeting, use the greeting-responder agent to respond with a f
 </commentary>
 assistant: "I'm going to use the Task tool to launch with the greeting-responder agent"
 </example>"""
-EDIT_DESCRIPTION = """Performs exact string replacements in files. 
+EDIT_DESCRIPTION = """This is a tool for editing files. For moving or renaming files, you should generally use the Bash tool with the 'mv' command instead. For larger edits, use the Write tool to overwrite files. For Jupyter notebooks (.ipynb files), use the NotebookEditCellTool instead.
 
-Usage:
-- You must use your `Read` tool at least once in the conversation before editing. This tool will error if you attempt an edit without reading the file. 
-- When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
-- ALWAYS prefer editing existing files. NEVER write new files unless explicitly required.
-- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
-- The edit will FAIL if `old_string` is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use `replace_all` to change every instance of `old_string`. 
-- Use `replace_all` for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance."""
+Before using this tool:
+
+Use the Read tool to understand the file's contents and context
+
+Verify the directory path is correct (only applicable when creating new files):
+
+Use the LS tool to verify the parent directory exists and is the correct location
+
+To make a file edit, provide the following:
+
+file_path: The absolute path to the file to modify (must be absolute, not relative)
+old_string: The text to replace (must be unique within the file, and must match the file contents exactly, including all whitespace and indentation)
+new_string: The edited text to replace the old_string
+
+The tool will replace ONE occurrence of old_string with new_string in the specified file.
+
+CRITICAL REQUIREMENTS FOR USING THIS TOOL:
+
+UNIQUENESS: The old_string MUST uniquely identify the specific instance you want to change. This means:
+
+Include AT LEAST 3-5 lines of context BEFORE the change point
+Include AT LEAST 3-5 lines of context AFTER the change point
+Include all whitespace, indentation, and surrounding code exactly as it appears in the file
+
+SINGLE INSTANCE: This tool can only change ONE instance at a time. If you need to change multiple instances:
+
+Make separate calls to this tool for each instance
+Each call must uniquely identify its specific instance using extensive context
+
+VERIFICATION: Before using this tool:
+
+Check how many instances of the target text exist in the file
+If multiple instances exist, gather enough context to uniquely identify each one
+Plan separate tool calls for each instance
+
+WARNING: If you do not follow these requirements:
+
+The tool will fail if old_string matches multiple locations
+The tool will fail if old_string doesn't match exactly (including whitespace)
+You may change the wrong instance if you don't include enough context
+
+When making edits:
+
+Ensure the edit results in idiomatic, correct code
+Do not leave the code in a broken state
+Always use absolute file paths (starting with /)
+
+If you want to create a new file, use:
+
+A new file path, including dir name if needed
+An empty old_string
+The new file's contents as new_string"""
 TOOL_DESCRIPTION = """Reads a file from the local filesystem. You can access any file directly by using this tool.
 Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
@@ -275,3 +320,66 @@ Usage:
 - Results are returned using cat -n format, with line numbers starting at 1
 - You have the capability to call multiple tools in a single response. It is always better to speculatively read multiple files as a batch that are potentially useful. 
 - If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents."""
+
+GLOB_DESCRIPTION = """Find files and directories using glob patterns (similar to Unix glob/find commands).
+
+This tool searches for files and directories that match specified patterns. It's ideal for finding files by name, extension, or path patterns.
+
+Usage:
+- pattern: Glob pattern to match (e.g., "*.py", "**/*.js", "src/**/test_*.py")
+- path: Directory to start search from (defaults to current directory ".")
+- max_results: Maximum number of results to return (defaults to 100)
+- include_dirs: Include directories in results (defaults to False, files only)
+- recursive: Enable recursive search (defaults to True)
+
+Glob Pattern Examples:
+- "*.py" - All Python files in current directory
+- "**/*.py" - All Python files recursively
+- "src/**/*.js" - All JS files under src/ directory recursively  
+- "test_*.py" - Files starting with "test_" and ending with ".py"
+- "**/node_modules" - All node_modules directories
+- "*.{py,js,ts}" - Files with .py, .js, or .ts extensions
+
+Returns: List of matching file/directory paths, one per line"""
+
+GREP_DESCRIPTION = """Search for text patterns within files (similar to Unix grep command).
+
+This tool searches file contents for specified patterns and returns matching lines with context. It's ideal for finding specific content, functions, variables, or text across your codebase.
+
+Usage:
+- pattern: Text pattern to search for (supports regular expressions if regex=True)
+- files: List of file paths to search in, or single file path string
+- path: Directory to search in (alternative to files parameter)
+- file_pattern: Glob pattern for files to search (e.g., "*.py") when using path
+- max_results: Maximum number of matching lines to return (defaults to 50)
+- case_sensitive: Whether search should be case-sensitive (defaults to False)
+- context_lines: Number of lines to show before/after each match (defaults to 0)
+- regex: Treat pattern as regular expression (defaults to False)
+- recursive: Search recursively when using path (defaults to True)
+
+Examples:
+- Search for "TODO" in specific files: pattern="TODO", files=["main.py", "utils.py"]
+- Search in all Python files: pattern="def main", path=".", file_pattern="*.py"
+- Regex search: pattern=r"function\s+\w+", regex=True, file_pattern="*.js"
+- Case-sensitive search: pattern="ClassName", case_sensitive=True
+- With context: pattern="import", context_lines=2
+
+Returns: File paths with line numbers and matching lines, plus context if requested"""
+
+
+
+WRITE_DESCRIPTION = """Write a file to the local filesystem. Overwrites the existing file if there is one.
+
+Before using this tool:
+
+Use the Read tool to understand the file's contents and context
+
+Directory Verification (only applicable when creating new files):
+
+Use the LS tool to verify the parent directory exists and is the correct location
+
+Usage:
+- file_path: Path to the file to write (absolute or relative path)
+- content: The content to write to the file
+
+The tool will automatically create parent directories if they don't exist."""
